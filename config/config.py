@@ -62,9 +62,9 @@ class Config:
 
         # Data specification
         self.dataset = args.dataset
-        self.train_file = "data/" + self.dataset + "/train.txt"
-        self.dev_file = "data/" + self.dataset + "/dev.txt"
-        self.test_file = "data/" + self.dataset + "/test.txt"
+        self.train_file = "data/" + self.dataset + "/sample_train.txt"
+        self.dev_file = "data/" + self.dataset + "/sample_dev.txt"
+        self.test_file = "data/" + self.dataset + "/sample_test.txt"
         self.label2idx = {}
         self.idx2labels = []
         self.char2idx = {}
@@ -191,10 +191,11 @@ class Config:
         self.label2idx[self.PAD] = len(self.label2idx)
         self.idx2labels.append(self.PAD)
         for inst in insts:
-            for label in inst.output:
-                if label not in self.label2idx:
-                    self.idx2labels.append(label)
-                    self.label2idx[label] = len(self.label2idx)
+            for label_list in inst.output:
+                for label in label_list:
+                    if label not in self.label2idx:
+                        self.idx2labels.append(label)
+                        self.label2idx[label] = len(self.label2idx)
 
         self.label2idx[self.START_TAG] = len(self.label2idx)
         self.idx2labels.append(self.START_TAG)
@@ -203,30 +204,6 @@ class Config:
         self.label_size = len(self.label2idx)
         print("#labels: {}".format(self.label_size))
         print("label 2idx: {}".format(self.label2idx))
-
-    def use_iobes(self, insts: List[Instance]) -> None:
-        """
-        Use IOBES tagging schema to replace the IOB tagging schema in the instance
-        :param insts:
-        :return:
-        """
-        for inst in insts:
-            output = inst.output
-            for pos in range(len(inst)):
-                curr_entity = output[pos]
-                if pos == len(inst) - 1:
-                    if curr_entity.startswith(self.B):
-                        output[pos] = curr_entity.replace(self.B, self.S)
-                    elif curr_entity.startswith(self.I):
-                        output[pos] = curr_entity.replace(self.I, self.E)
-                else:
-                    next_entity = output[pos + 1]
-                    if curr_entity.startswith(self.B):
-                        if next_entity.startswith(self.O) or next_entity.startswith(self.B):
-                            output[pos] = curr_entity.replace(self.B, self.S)
-                    elif curr_entity.startswith(self.I):
-                        if next_entity.startswith(self.O) or next_entity.startswith(self.B):
-                            output[pos] = curr_entity.replace(self.I, self.E)
 
     def map_insts_ids(self, insts: List[Instance]):
         """
@@ -252,5 +229,8 @@ class Config:
                         char_id.append(self.char2idx[self.UNK])
                 inst.char_ids.append(char_id)
             if inst.output:
-                for label in inst.output:
-                    inst.output_ids.append(self.label2idx[label])
+                for label_list in inst.output:
+                    label_id_list = []
+                    for label in label_list:
+                        label_id_list.append(self.label2idx[label])
+                    inst.output_ids.append(label_id_list)

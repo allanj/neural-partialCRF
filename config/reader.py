@@ -33,12 +33,13 @@ class Reader:
                     if len(insts) == number:
                         break
                     continue
-                word, label = line.split()
+                word, labe_values = line.split()
+                label_list = labe_values.split("|")
                 if self.digit2zero:
                     word = re.sub('\d', '0', word) # replace digit with 0.
                 words.append(word)
                 self.vocab.add(word)
-                labels.append(label)
+                labels.append(label_list)
         print("number of sentences: {}".format(len(insts)))
         return insts
 

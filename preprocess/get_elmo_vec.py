@@ -69,17 +69,17 @@ def get_vector():
 
 
     # Read train
-    file = "../data/"+dataset+"/train.txt"
+    file = "../data/"+dataset+"/sample_train.txt"
     outfile = file + ".elmo.vec"
     read_parse_write(elmo, file, outfile, mode)
 
     # Read dev
-    file = "../data/"+dataset+"/dev.txt"
+    file = "../data/"+dataset+"/sample_dev.txt"
     outfile = file + ".elmo.vec"
     read_parse_write(elmo, file, outfile, mode)
 
     # Read test
-    file = "../data/"+dataset+"/test.txt"
+    file = "../data/"+dataset+"/sample_test.txt"
     outfile = file + ".elmo.vec"
     read_parse_write(elmo, file, outfile, mode)
 

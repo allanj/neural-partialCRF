@@ -1,0 +1,54 @@
+EU B-ORG|B-MISC
+rejects O
+German B-MISC|B-PER
+call O|B-PER
+to O
+boycott O
+British B-MISC
+lamb O
+. O
+
+Peter B-PER|B-ORG
+Blackburn I-PER
+
+BRUSSELS B-LOC
+1996-08-22 O
+
+The O
+European B-ORG|B-MISC
+Commission I-ORG|I-MISC
+said O
+on O
+Thursday O
+it O
+disagreed O
+with O
+German B-MISC|B-ORG
+advice O
+to O
+consumers O
+to O
+shun O
+British B-MISC
+lamb O
+until O
+scientists O
+determine O
+whether O
+mad O
+cow O
+disease O
+can O
+be O
+transmitted O
+to O
+sheep O
+. O
+
+AL-AIN B-LOC
+, O
+United B-LOC
+Arab I-LOC
+Emirates I-LOC
+1996-12-06 O
+

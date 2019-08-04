@@ -29,7 +29,7 @@ class NNCRF(nn.Module):
                     batch_context_emb: torch.Tensor,
                     chars: torch.Tensor,
                     char_seq_lens: torch.Tensor,
-                    tags: torch.Tensor) -> torch.Tensor:
+                    label_mask_tensor: torch.Tensor) -> torch.Tensor:
         """
         Calculate the negative loglikelihood.
         :param words: (batch_size x max_seq_len)
@@ -37,15 +37,11 @@ class NNCRF(nn.Module):
         :param batch_context_emb: (batch_size x max_seq_len x context_emb_size)
         :param chars: (batch_size x max_seq_len x max_char_len)
         :param char_seq_lens: (batch_size x max_seq_len)
-        :param tags: (batch_size x max_seq_len)
+        :param label_mask_tensor: (batch_size x max_seq_len x num_labels)
         :return: the loss with shape (batch_size)
         """
         lstm_scores = self.encoder(words, word_seq_lens, batch_context_emb, chars, char_seq_lens)
-        batch_size = words.size(0)
-        sent_len = words.size(1)
-        maskTemp = torch.arange(1, sent_len + 1, dtype=torch.long).view(1, sent_len).expand(batch_size, sent_len).to(self.device)
-        mask = torch.le(maskTemp, word_seq_lens.view(batch_size, 1).expand(batch_size, sent_len)).to(self.device)
-        unlabed_score, labeled_score =  self.inferencer(lstm_scores, word_seq_lens, tags, mask)
+        unlabed_score, labeled_score =  self.inferencer(lstm_scores, word_seq_lens, label_mask_tensor)
         return unlabed_score - labeled_score
 
     def decode(self, batchInput: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:

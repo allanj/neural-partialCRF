@@ -30,7 +30,7 @@ class Span:
 
 
 def evaluate_batch_insts(batch_insts: List[Instance],
-                         batch_pred_ids: torch.LongTensor,
+                         batch_pred_ids: torch.Tensor,
                          batch_gold_ids: torch.LongTensor,
                          word_seq_lens: torch.LongTensor,
                          idx2label: List[str]) -> np.ndarray:
@@ -50,10 +50,10 @@ def evaluate_batch_insts(batch_insts: List[Instance],
     word_seq_lens = word_seq_lens.tolist()
     for idx in range(len(batch_pred_ids)):
         length = word_seq_lens[idx]
-        output = batch_gold_ids[idx][:length].tolist()
+        output = batch_insts[idx].output_ids
         prediction = batch_pred_ids[idx][:length].tolist()
         prediction = prediction[::-1]
-        output = [idx2label[l] for l in output]
+        output = [idx2label[l[0]] for l in output]
         prediction =[idx2label[l] for l in prediction]
         batch_insts[idx].prediction = prediction
         #convert to span
@@ -62,20 +62,24 @@ def evaluate_batch_insts(batch_insts: List[Instance],
         for i in range(len(output)):
             if output[i].startswith("B-"):
                 start = i
-            if output[i].startswith("E-"):
-                end = i
-                output_spans.add(Span(start, end, output[i][2:]))
-            if output[i].startswith("S-"):
-                output_spans.add(Span(i, i, output[i][2:]))
+            if output[i].startswith("I-"):
+                if i == len(output)- 1 or (not output[i+1].startswith("I-")):
+                    end = i
+                    output_spans.add(Span(start, end, output[i][2:]))
+            if output[i].startswith("B-"):
+                if i == len(output) - 1 or (not output[i + 1].startswith("I-")):
+                    output_spans.add(Span(i, i, output[i][2:]))
         predict_spans = set()
         for i in range(len(prediction)):
             if prediction[i].startswith("B-"):
                 start = i
-            if prediction[i].startswith("E-"):
-                end = i
-                predict_spans.add(Span(start, end, prediction[i][2:]))
-            if prediction[i].startswith("S-"):
-                predict_spans.add(Span(i, i, prediction[i][2:]))
+            if prediction[i].startswith("I-"):
+                if i == len(prediction) - 1 or (not prediction[i + 1].startswith("I-")):
+                    end = i
+                    predict_spans.add(Span(start, end, prediction[i][2:]))
+            if prediction[i].startswith("B-"):
+                if i == len(prediction) - 1 or (not prediction[i + 1].startswith("I-")):
+                    predict_spans.add(Span(i, i, prediction[i][2:]))
 
         total_entity += len(output_spans)
         total_predict += len(predict_spans)

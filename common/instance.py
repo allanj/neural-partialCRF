@@ -9,11 +9,11 @@ class Instance:
     This class is the basic Instance for a datasample
     """
 
-    def __init__(self, input: Sentence, output: List[str] = None) -> None:
+    def __init__(self, input: Sentence, output: List[List[str]] = None) -> None:
         """
         Constructor for the instance.
         :param input: sentence containing the words
-        :param output: a list of labels
+        :param output: each position has a label list. Because each position has a list of labels.
         """
         self.input = input
         self.output = output

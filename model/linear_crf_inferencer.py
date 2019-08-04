@@ -34,24 +34,53 @@ class LinearCRF(nn.Module):
         self.transition = nn.Parameter(init_transition)
 
     @overrides
-    def forward(self, lstm_scores, word_seq_lens, tags, mask):
+    def forward(self, lstm_scores, word_seq_lens, label_tag_mask):
         """
         Calculate the negative log-likelihood
-        :param lstm_scores:
-        :param word_seq_lens:
-        :param tags:
-        :param mask:
+        :param lstm_scores: shape (batch_size x max_word_len x num_labels)
+        :param word_seq_lens: shape (batch_size)
+        :param label_tag_mask: shape (batch_size, max_word_len, num_labels)
         :return:
         """
         all_scores=  self.calculate_all_scores(lstm_scores= lstm_scores)
         unlabed_score = self.forward_unlabeled(all_scores, word_seq_lens)
-        labeled_score = self.forward_labeled(all_scores, word_seq_lens, tags, mask)
+        labeled_score = self.forward_labeled(all_scores, word_seq_lens, label_tag_mask)
         return unlabed_score, labeled_score
+
+    def forward_labeled(self, all_scores: torch.Tensor, word_seq_lens: torch.Tensor, label_tag_mask: torch.Tensor) -> torch.Tensor:
+        """
+        Calculate the scores with the forward algorithm. Basically calculating the normalization term
+        :param all_scores: (batch_size x max_seq_len x num_labels) from lstm scores.
+        :param word_seq_lens: (batch_size)
+        :param mask: shape (batch x max_seq_len x num_labels)
+        :return: (batch_size) for the normalization scores
+        """
+        batch_size = all_scores.size(0)
+        seq_len = all_scores.size(1)
+        label_tag_mask = label_tag_mask.float().log()
+        ## alpha is a log-space score
+        alpha = torch.zeros(batch_size, seq_len, self.label_size).to(self.device)
+
+        alpha[:, 0, :] = all_scores[:, 0,  self.start_idx, :] ## the first position of all labels = (the transition from start - > all labels) + current emission.
+        alpha[:, 0, :] += label_tag_mask[:, 0, :]
+
+        for word_idx in range(1, seq_len):
+            ## batch_size, self.label_size, self.label_size
+            before_log_sum_exp = alpha[:, word_idx-1, :].view(batch_size, self.label_size, 1).expand(batch_size, self.label_size, self.label_size) + all_scores[:, word_idx, :, :]
+            alpha[:, word_idx, :] = log_sum_exp_pytorch(before_log_sum_exp)
+            alpha[:, word_idx, :] += label_tag_mask[:, word_idx,:]
+
+        ### batch_size x label_size
+        last_alpha = torch.gather(alpha, 1, word_seq_lens.view(batch_size, 1, 1).expand(batch_size, 1, self.label_size)-1).view(batch_size, self.label_size)
+        last_alpha += self.transition[:, self.end_idx].view(1, self.label_size).expand(batch_size, self.label_size)
+        last_alpha = log_sum_exp_pytorch(last_alpha.view(batch_size, self.label_size, 1)).view(batch_size)
+
+        return torch.sum(last_alpha)
 
     def forward_unlabeled(self, all_scores: torch.Tensor, word_seq_lens: torch.Tensor) -> torch.Tensor:
         """
         Calculate the scores with the forward algorithm. Basically calculating the normalization term
-        :param all_scores: (batch_size x max_seq_len x num_labels) from lstm scores.
+        :param all_scores: (batch_size x max_seq_len x num_labels x num_labels) from (lstm scores + transition scores).
         :param word_seq_lens: (batch_size)
         :return: (batch_size) for the normalization scores
         """
@@ -73,33 +102,10 @@ class LinearCRF(nn.Module):
 
         return torch.sum(last_alpha)
 
-    def forward_labeled(self, all_scores: torch.Tensor, word_seq_lens: torch.Tensor, tags: torch.Tensor, masks: torch.Tensor) -> torch.Tensor:
-        '''
-        Calculate the scores for the gold instances.
-        :param all_scores: (batch, seq_len, label_size, label_size)
-        :param word_seq_lens: (batch, seq_len)
-        :param tags: (batch, seq_len)
-        :param masks: batch, seq_len
-        :return: sum of score for the gold sequences Shape: (batch_size)
-        '''
-        batchSize = all_scores.shape[0]
-        sentLength = all_scores.shape[1]
-
-        ## all the scores to current labels: batch, seq_len, all_from_label?
-        currentTagScores = torch.gather(all_scores, 3, tags.view(batchSize, sentLength, 1, 1).expand(batchSize, sentLength, self.label_size, 1)).view(batchSize, -1, self.label_size)
-        if sentLength != 1:
-            tagTransScoresMiddle = torch.gather(currentTagScores[:, 1:, :], 2, tags[:, : sentLength - 1].view(batchSize, sentLength - 1, 1)).view(batchSize, -1)
-        tagTransScoresBegin = currentTagScores[:, 0, self.start_idx]
-        endTagIds = torch.gather(tags, 1, word_seq_lens.view(batchSize, 1) - 1)
-        tagTransScoresEnd = torch.gather(self.transition[:, self.end_idx].view(1, self.label_size).expand(batchSize, self.label_size), 1,  endTagIds).view(batchSize)
-        score = torch.sum(tagTransScoresBegin) + torch.sum(tagTransScoresEnd)
-        if sentLength != 1:
-            score += torch.sum(tagTransScoresMiddle.masked_select(masks[:, 1:]))
-        return score
-
     def calculate_all_scores(self, lstm_scores: torch.Tensor) -> torch.Tensor:
         """
         Calculate all scores by adding up the transition scores and emissions (from lstm).
+        Basically, compute the scores for each edges between labels at adjacent positions.
         This score is later be used for forward-backward inference
         :param lstm_scores: emission scores.
         :return:

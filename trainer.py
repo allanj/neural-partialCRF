@@ -146,7 +146,10 @@ def evaluate_model(config: Config, model: NNCRF, batch_insts_ids, name: str, ins
     for batch in batch_insts_ids:
         one_batch_insts = insts[batch_id * batch_size:(batch_id + 1) * batch_size]
         batch_max_scores, batch_max_ids = model.decode(batch)
-        metrics += evaluate_batch_insts(one_batch_insts, batch_max_ids, batch[-1], batch[1], config.idx2labels)
+        metrics += evaluate_batch_insts(batch_insts=one_batch_insts,
+                                        batch_pred_ids = batch_max_ids,
+                                        batch_gold_ids=batch[-1],
+                                        word_seq_lens= batch[1], idx2label=config.idx2labels)
         batch_id += 1
     p, total_predict, total_entity = metrics[0], metrics[1], metrics[2]
     precision = p * 1.0 / total_predict * 100 if total_predict != 0 else 0
@@ -174,9 +177,6 @@ def main():
         load_elmo_vec(conf.dev_file + "." + conf.context_emb.name + ".vec", devs)
         load_elmo_vec(conf.test_file + "." + conf.context_emb.name + ".vec", tests)
 
-    conf.use_iobes(trains)
-    conf.use_iobes(devs)
-    conf.use_iobes(tests)
     conf.build_label_idx(trains)
 
     conf.build_word_idx(trains, devs, tests)

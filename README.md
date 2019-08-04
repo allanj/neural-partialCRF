@@ -1,8 +1,7 @@
 ## LSTM-CRF Model for Named Entity Recognition (or Sequence Labeling)
 
-This repository implements an LSTM-CRF model for named entity recognition. The model is same as the one by [Lample et al., (2016)](http://www.anthology.aclweb.org/N/N16/N16-1030.pdf) except we do not have the last `tanh` layer after the BiLSTM.
-We achieve the SOTA performance on both CoNLL-2003 and OntoNotes 5.0 English datasets (check our [benchmark](/docs/benchmark.md)). 
-
+We implement an neural-based implementation of [partial-crfsuite](https://github.com/Oneplus/partial-crfsuite). 
+Our implementation is based on the LSTM-CRF implementation by [this project](https://github.com/allanj/pytorch_lstmcrf).
 ### Requirements
 * Python >= 3.6 and PyTorch >= 0.4.1
 * AllenNLP package (if you use ELMo)
@@ -15,27 +14,31 @@ We achieve the SOTA performance on both CoNLL-2003 and OntoNotes 5.0 English dat
     python3.6 trainer.py
     ```
 
-### Running with our pretrained English (with ELMo) Model
-We trained an English LSTM-CRF (+ELMo) model on the CoNLL-2003 dataset. 
-You can directly predict a sentence with the following piece of code (*Note*: we do not do tokenization.).
-
-You can download the English model through this [link](https://drive.google.com/file/d/1N1DiS9Xhjprn4cfNvIgs9GWSHC47n25C/view?usp=sharing).
-```python
-from ner_predictor import NERPredictor
-sentence = "This is an English model ."
-# Or you can make a list of sentence:
-# sentence = ["This is an English model", "This is the second sentence"]
-model_path = "english_model.tar.gz"
-predictor = NERPredictor(model_path)
-prediction = predictor.predict(sentence)
-print(prediction)
-```
 
 ### Running with your own data. 
 1. Create a folder `YourData` under the data directory. 
-2. Put the `train.txt`, `dev.txt` and `test.txt` files (make sure the format is compatible) under this directory. 
-If you have a different format, simply modify the reader in `config/reader.py`.
+2. Put the `train.txt`, `dev.txt` and `test.txt` files (make sure the format is compatible) under this directory.
+Remember to follow the dataset format: we use `|` to separate alternative labels at each position. Following is a sample format.
+We also focus on IOB encoding scheme.
+    ```
+    EU B-ORG|B-MISC
+    rejects O
+    German B-MISC|B-PER
+    call O|B-PER
+    to O
+    boycott O
+    British B-MISC
+    lamb O
+    . O
+    
+    Peter B-PER|B-ORG
+    Blackburn I-PER
+    ```
+    **Note: we would not have alternative labels for validation and test dataset.**
+    If you have a different format, simply modify the reader in `config/reader.py`.
+    
 3. Change the `dataset` argument to `YourData` in the `main.py`.
+
 
 
 ### Using ELMo (and BERT)
@@ -49,22 +52,9 @@ For using BERT, it would be a similar manner. Let me know if you want further fu
 
 
 
-### Further Details and Extensions
 
-1. [Benchmark Performance](/docs/benchmark.md)
-
+### Ongoing plan
+Add an option for users to add label constraints. 
+The way to do this now requires the users to modify the transition parameter matrix.
     
-
-
-
-
-
-### Ongoing Plan
-
-- [x] Support for ELMo as features
-- [x] Interactive model where we can just import model and decode a setence
-- [x] Make the code more modularized (separate the encoder and inference layers) and readable (by adding more comments)
-- [x] Put the benchmark performance documentation to another markdown file
-- [ ] Integrate ELMo/BERT as a module instead of just features.
-- [ ] Clean up the code to better organization (e.g., `import` stuff)
 

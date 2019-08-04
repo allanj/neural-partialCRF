@@ -48,6 +48,7 @@ def simple_batching(config, insts: List[Instance]) -> Tuple[torch.Tensor, torch.
     """
     batch_size = len(insts)
     batch_data = insts
+    label_size = config.label_size
     # probably no need to sort because we will sort them in the model instead.
     # batch_data = sorted(insts, key=lambda inst: len(inst.input.words), reverse=True) ##object-based not direct copy
     word_seq_len = torch.LongTensor(list(map(lambda inst: len(inst.input.words), batch_data)))
@@ -63,13 +64,16 @@ def simple_batching(config, insts: List[Instance]) -> Tuple[torch.Tensor, torch.
         context_emb_tensor = torch.zeros((batch_size, max_seq_len, emb_size))
 
     word_seq_tensor = torch.zeros((batch_size, max_seq_len), dtype=torch.long)
-    label_seq_tensor =  torch.zeros((batch_size, max_seq_len), dtype=torch.long)
+    label_mask_tensor =  torch.zeros((batch_size, max_seq_len, label_size), dtype=torch.long)
     char_seq_tensor = torch.zeros((batch_size, max_seq_len, max_char_seq_len), dtype=torch.long)
 
     for idx in range(batch_size):
         word_seq_tensor[idx, :word_seq_len[idx]] = torch.LongTensor(batch_data[idx].word_ids)
         if batch_data[idx].output_ids:
-            label_seq_tensor[idx, :word_seq_len[idx]] = torch.LongTensor(batch_data[idx].output_ids)
+            for pos in range(len(batch_data[idx].output_ids)):
+                label_mask_tensor[idx, pos, batch_data[idx].output_ids[pos]] = 1
+            ## To ensure we won't get Nan during training, flip to 0, you will get nan error
+            label_mask_tensor[idx, word_seq_len[idx]:, : ] = 1
         if config.context_emb != ContextEmb.none:
             context_emb_tensor[idx, :word_seq_len[idx], :] = torch.from_numpy(batch_data[idx].elmo_vec)
 
@@ -79,12 +83,12 @@ def simple_batching(config, insts: List[Instance]) -> Tuple[torch.Tensor, torch.
             char_seq_tensor[idx, wordIdx, 0: 1] = torch.LongTensor([config.char2idx[PAD]])   ###because line 119 makes it 1, every single character should have a id. but actually 0 is enough
 
     word_seq_tensor = word_seq_tensor.to(config.device)
-    label_seq_tensor = label_seq_tensor.to(config.device)
+    label_mask_tensor = label_mask_tensor.to(config.device)
     char_seq_tensor = char_seq_tensor.to(config.device)
     word_seq_len = word_seq_len.to(config.device)
     char_seq_len = char_seq_len.to(config.device)
 
-    return word_seq_tensor, word_seq_len, context_emb_tensor, char_seq_tensor, char_seq_len, label_seq_tensor
+    return word_seq_tensor, word_seq_len, context_emb_tensor, char_seq_tensor, char_seq_len, label_mask_tensor
 
 
 def lr_decay(config, optimizer: optim.Optimizer, epoch: int) -> optim.Optimizer:
@@ -144,6 +148,6 @@ def write_results(filename: str, insts):
             output = inst.output
             prediction = inst.prediction
             assert len(output) == len(prediction)
-            f.write("{}\t{}\t{}\t{}\n".format(i, words[i], output[i], prediction[i]))
+            f.write("{}\t{}\t{}\t{}\n".format(i, words[i], output[i][0], prediction[i]))
         f.write("\n")
     f.close()
